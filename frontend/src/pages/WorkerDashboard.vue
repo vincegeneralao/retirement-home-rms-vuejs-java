@@ -120,12 +120,7 @@ async function loadAll() {
   openShifts.value = open;
 }
 
-onMounted(async () => {
-  if (auth.mustChangePassword) {
-    // Hold off until the worker has dealt with the reset; the modal covers the whole page.
-    loading.value = false;
-    return;
-  }
+async function fetchAll() {
   try {
     await loadAll();
   } catch (err: any) {
@@ -133,18 +128,19 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
 
+// The roster loads even while the reset modal is open. A password reset only rewrites the
+// worker's credentials, so their existing assignments are still valid and must be on screen the
+// moment the modal closes.
+onMounted(fetchAll);
+
+// Resolving the reset clears the store flag, which usually unmounts the modal before its
+// "resolved" event reaches us, so this is only a belt-and-braces refresh.
 async function passwordResolved() {
   loading.value = true;
   error.value = null;
-  try {
-    await loadAll();
-  } catch (err: any) {
-    error.value = err.response?.data?.detail || "Failed to load shifts";
-  } finally {
-    loading.value = false;
-  }
+  await fetchAll();
 }
 
 async function claim(openShiftId: number) {

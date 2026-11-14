@@ -1,5 +1,7 @@
 package com.rms;
 
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -34,6 +36,33 @@ class PasswordResetApiTest extends AbstractApiTest {
                 .andExpect(status().isOk())
                 .andReturn();
         return node(res);
+    }
+
+    private long firstClientId(String admin) throws Exception {
+        MvcResult res = mockMvc.perform(get("/api/admin/clients").header("Authorization", bearer(admin)))
+                .andExpect(status().isOk()).andReturn();
+        return node(res).path(0).path("id").asLong();
+    }
+
+    /** Publish + assign a shift to {@code worker}, returning the created assignment id. */
+    private long assignShift(String admin, long client, long worker, String date) throws Exception {
+        MvcResult os = mockMvc.perform(post("/api/admin/open-shifts").contentType(JSON)
+                        .header("Authorization", bearer(admin))
+                        .content("{\"clientId\":" + client + ",\"date\":\"" + date
+                                + "\",\"startTime\":\"09:00\",\"endTime\":\"10:00\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        long shift = node(os).path("id").asLong();
+        MvcResult as = mockMvc.perform(post("/api/admin/open-shifts/" + shift + "/assign").contentType(JSON)
+                        .header("Authorization", bearer(admin)).content("{\"workerId\":" + worker + "}"))
+                .andExpect(status().isOk()).andReturn();
+        return node(as).path("assignmentId").asLong();
+    }
+
+    /** True when the worker's upcoming roster still contains the given assignment. */
+    private boolean upcomingContains(String token, long assignmentId) throws Exception {
+        MvcResult res = mockMvc.perform(get("/api/worker/assignments/upcoming").header("Authorization", bearer(token)))
+                .andExpect(status().isOk()).andReturn();
+        return node(res).toString().contains("\"id\":" + assignmentId);
     }
 
     @Test
@@ -73,6 +102,32 @@ class PasswordResetApiTest extends AbstractApiTest {
         mockMvc.perform(get("/api/worker/assignments/upcoming").header("Authorization", bearer(worker)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Your session is no longer valid. Sign in again."));
+    }
+
+    @Test
+    void resetLeavesTheWorkersRosterIntact() throws Exception {
+        String admin = adminToken();
+        long client = firstClientId(admin);
+        String username = "roster." + System.nanoTime();
+        long id = createWorker(admin, username);
+        String date = LocalDate.now().plusDays(3).toString();
+        long assignmentId = assignShift(admin, client, id, date);
+
+        mockMvc.perform(post("/api/admin/workers/" + id + "/reset-password")
+                        .header("Authorization", bearer(admin)))
+                .andExpect(status().isNoContent());
+
+        String token = loginNode(username, "").path("token").asString();
+        if (!upcomingContains(token, assignmentId)) {
+            throw new AssertionError("Admin password reset dropped assignment " + assignmentId);
+        }
+
+        // Acknowledging the reset with "keep" must not change the roster either.
+        mockMvc.perform(post("/api/worker/password/keep").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        if (!upcomingContains(token, assignmentId)) {
+            throw new AssertionError("Keeping the reset password dropped assignment " + assignmentId);
+        }
     }
 
     @Test

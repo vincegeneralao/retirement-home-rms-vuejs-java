@@ -137,6 +137,8 @@ Click **Authorize** and paste the token returned by `POST /api/auth/login` to tr
 
 An admin can reset a worker's password to blank. The worker then signs in with an empty password and the SPA shows a modal that either sets a new password or, after a two-click warning that a blank password is not best practice, keeps it. The `password_reset_required` flag on `users` drives this, and the flag is mirrored in `localStorage.rms_password_reset_required` so the modal survives a refresh. `BCryptPasswordEncoder` rejects an empty raw secret, so `SecurityBeans` supplies a blank-tolerant encoder that verifies `""` with `BCrypt.checkpw`.
 
+A reset only rewrites `password_hash`, `token_version` and `password_reset_required`; a worker's roster, availability and claimed shifts are never touched, and the dashboard loads them even while the modal is open. Rotating the token version does sign the worker out of any session that was already open.
+
 Error responses use RFC 9457–style bodies (`type`, `title`, `status`, `detail`, plus a machine-readable `code` for domain errors or an `errors` field-map for validation failures), identical to the reference API. Security hardening adds to that contract: repeated sign-in failures return `429 TOO_MANY_ATTEMPTS` with a `Retry-After` header, tokens issued before a worker is deactivated return `401`, and every API response carries baseline security headers (`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Cache-Control: no-store`) while the nginx-served SPA ships a strict CSP.
 
 ## Project Structure

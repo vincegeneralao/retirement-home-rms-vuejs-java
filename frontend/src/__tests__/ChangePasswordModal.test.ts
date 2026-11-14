@@ -93,4 +93,20 @@ describe("ChangePasswordModal", () => {
     await vi.waitFor(() => expect(w.text()).toContain("Current password is incorrect"));
     expect(w.emitted("resolved")).toBeUndefined();
   });
+
+  it("dismisses a stale reset prompt when the server has nothing pending", async () => {
+    localStorage.setItem("rms_password_reset_required", "true");
+    const auth = useAuthStore();
+    vi.spyOn(auth, "keepResetPassword").mockRejectedValue({
+      response: { status: 409, data: { code: "PASSWORD_RESET_NOT_PENDING", detail: "nope" } },
+    });
+
+    const w = mount(ChangePasswordModal);
+    await buttonByText(w, "Keep")!.trigger("click");
+    await buttonByText(w, "Keep blank password")!.trigger("click");
+
+    await vi.waitFor(() => expect(w.emitted("resolved")).toHaveLength(1));
+    expect(auth.mustChangePassword).toBe(false);
+    expect(localStorage.getItem("rms_password_reset_required")).toBe("false");
+  });
 });

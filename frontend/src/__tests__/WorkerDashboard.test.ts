@@ -56,27 +56,37 @@ describe("WorkerDashboard", () => {
     await vi.waitFor(() => expect(w.text()).toContain("No records found"));
   });
 
-  it("shows the change password modal and skips loading until a reset is dealt with", async () => {
+  it("still loads the roster while the change password modal is open", async () => {
     localStorage.setItem("rms_password_reset_required", "true");
     const w = mount(WorkerDashboard, { global: { plugins: [createPinia()] } });
     await vi.waitFor(() => expect(w.text()).toContain("Your password was reset"));
 
-    expect(api.getWorkerAssignments).not.toHaveBeenCalled();
-    expect(api.getOpenShifts).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(api.getWorkerAssignments).toHaveBeenCalled());
+    expect(api.getOpenShifts).toHaveBeenCalled();
     localStorage.clear();
   });
 
-  it("loads the roster once the reset is resolved", async () => {
+  it("keeps existing shifts visible after a reset is resolved", async () => {
+    (api.getWorkerUpcoming as any).mockResolvedValue([
+      {
+        id: 5, workerId: 6, workerName: "P P", clientId: 3, clientName: "Margaret Osei",
+        roomNumber: "12", address: "Rose St", location: "12 · Rose St",
+        start: "2026-11-15T08:00:00", end: "2026-11-15T09:00:00",
+        durationMinutes: 60, status: "IN_PROGRESS", notes: null,
+      },
+    ]);
     localStorage.setItem("rms_password_reset_required", "true");
     const w = mount(WorkerDashboard, { global: { plugins: [createPinia()] } });
     await vi.waitFor(() => expect(w.text()).toContain("Your password was reset"));
 
+    // Resolving the reset clears the store flag, which unmounts the modal.
     useAuthStore().mustChangePassword = false;
-    w.findComponent(ChangePasswordModal).vm.$emit("resolved");
+    await w.vm.$nextTick();
 
-    await vi.waitFor(() => expect(w.text()).toContain("No records found"));
-    expect(api.getWorkerAssignments).toHaveBeenCalled();
-    expect(api.getOpenShifts).toHaveBeenCalled();
+    expect(w.text()).not.toContain("Your password was reset");
+    await vi.waitFor(() => expect(w.text()).toContain("Margaret Osei"));
+    expect(w.text()).not.toContain("No upcoming shifts");
+    expect(w.text()).toContain("2026-11-15");
     localStorage.clear();
   });
 

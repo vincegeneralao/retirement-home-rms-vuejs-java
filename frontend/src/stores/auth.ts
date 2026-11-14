@@ -57,6 +57,12 @@ export const useAuthStore = defineStore("auth", () => {
     applySession(await api.keepResetPassword());
   }
 
+  /** Drops a reset prompt the server says is already settled, so the worker is not stuck behind it. */
+  function clearPasswordResetFlag(): void {
+    mustChangePassword.value = false;
+    persist();
+  }
+
   function logout(): void {
     token.value = null;
     user.value = null;
@@ -83,5 +89,6 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
     changePassword,
     keepResetPassword,
+    clearPasswordResetFlag,
   };
 });

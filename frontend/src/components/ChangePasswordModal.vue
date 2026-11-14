@@ -61,6 +61,13 @@ async function handleKeep() {
     await auth.keepResetPassword();
     emit("resolved");
   } catch (err: any) {
+    // A stale local flag means the reset was already dealt with elsewhere, so let the worker
+    // through instead of trapping them behind the modal.
+    if (err?.response?.data?.code === "PASSWORD_RESET_NOT_PENDING") {
+      auth.clearPasswordResetFlag();
+      emit("resolved");
+      return;
+    }
     error.value = message(err, "Could not confirm your password choice");
     confirmKeep.value = false;
   } finally {
