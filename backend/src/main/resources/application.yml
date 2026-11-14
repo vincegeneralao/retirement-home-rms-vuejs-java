@@ -15,6 +15,10 @@ spring:
 
 rms:
   site-timezone: ${SITE_TIMEZONE:Australia/Brisbane}
+  rate-limit:
+    max-failed-attempts: ${LOGIN_MAX_FAILED_ATTEMPTS:5}
+    window: ${LOGIN_FAIL_WINDOW:10m}
+    lockout: ${LOGIN_LOCKOUT:15m}
   jwt:
     secret: ${JWT_SECRET:dev-only-signing-secret-change-me-please-32-bytes}
     ttl: ${JWT_TTL:8h}

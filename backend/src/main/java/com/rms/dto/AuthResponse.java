@@ -10,6 +10,8 @@ public record AuthResponse(
         Long userId,
         String username,
         String fullName,
-        List<String> roles
+        List<String> roles,
+        /** True when the password was reset by an admin and the worker has not dealt with it yet. */
+        boolean mustChangePassword
 ) {
 }

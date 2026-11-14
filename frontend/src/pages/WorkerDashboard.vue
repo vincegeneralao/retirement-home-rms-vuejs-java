@@ -82,6 +82,8 @@
         </UiCard>
       </section>
     </main>
+
+    <ChangePasswordModal v-if="auth.mustChangePassword" @resolved="passwordResolved" />
   </div>
 </template>
 
@@ -91,12 +93,15 @@ import TopBar from "@/components/TopBar.vue";
 import StatePanels from "@/components/StatePanels.vue";
 import ShiftCard from "@/components/ShiftCard.vue";
 import OpenShiftCard from "@/components/OpenShiftCard.vue";
+import ChangePasswordModal from "@/components/ChangePasswordModal.vue";
 import UiCard from "@/components/ui/UiCard.vue";
 import UiAlert from "@/components/ui/UiAlert.vue";
 import { getWorkerAssignments, getWorkerUpcoming, getOpenShifts, claimOpenShift, updateWorkerAssignmentStatus } from "@/api/services";
 import type { AssignmentView, OpenShiftView } from "@/types/api";
 import { todayIso } from "@/utils/siteTime";
+import { useAuthStore } from "@/stores/auth";
 
+const auth = useAuthStore();
 const shifts = ref<AssignmentView[]>([]);
 const upcoming = ref<AssignmentView[]>([]);
 const openShifts = ref<OpenShiftView[]>([]);
@@ -116,6 +121,11 @@ async function loadAll() {
 }
 
 onMounted(async () => {
+  if (auth.mustChangePassword) {
+    // Hold off until the worker has dealt with the reset; the modal covers the whole page.
+    loading.value = false;
+    return;
+  }
   try {
     await loadAll();
   } catch (err: any) {
@@ -124,6 +134,18 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+async function passwordResolved() {
+  loading.value = true;
+  error.value = null;
+  try {
+    await loadAll();
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || "Failed to load shifts";
+  } finally {
+    loading.value = false;
+  }
+}
 
 async function claim(openShiftId: number) {
   claimingId.value = openShiftId;

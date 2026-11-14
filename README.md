@@ -86,8 +86,11 @@ docker compose up -d db
 | DB_PASSWORD      | rms_secret_2026                | Database password             |
 | JWT_SECRET       | (dev fallback, **≥32 bytes required in prod**) | HS256 signing secret |
 | JWT_TTL          | 8h                             | Token lifetime (e.g. 8h, 30m) |
-| CORS_ORIGINS     | http://localhost:5175          | Allowed browser origins       |
+| CORS_ORIGINS     | http://localhost:5175          | Allowed browser origins |
 | SITE_TIMEZONE    | Australia/Brisbane             | Timezone for schedules ("today", rosters) |
+| LOGIN_MAX_FAILED_ATTEMPTS | 5                      | Failed sign-ins tolerated per window |
+| LOGIN_FAIL_WINDOW | 10m                           | Rolling window that counts failed sign-ins |
+| LOGIN_LOCKOUT    | 15m                            | Sign-in lockout once the allowance is used |
 
 The JWT issuer claim is fixed to `retirement-home-rms`. `docker-compose.yml` overrides the secret/origins and points the datasource at the `db` service.
 
@@ -102,12 +105,13 @@ Interactive Swagger UI (with "Try it out") is served by the backend:
 Click **Authorize** and paste the token returned by `POST /api/auth/login` to try authenticated endpoints.
 
 ### Auth
-- `POST /api/auth/login` — returns JWT + user info
+- `POST /api/auth/login` — returns JWT + user info (`mustChangePassword` is `true` right after an admin reset)
 
 ### Admin (requires `ROLE_ADMIN`)
 - `GET /api/admin/workers` — list workers with shift counts
 - `POST /api/admin/workers` — create worker
 - `DELETE /api/admin/workers/{workerId}` — soft-deactivate worker
+- `POST /api/admin/workers/{workerId}/reset-password` — set the worker's password to blank, sign them out everywhere and flag them to change it at next sign-in (`204`)
 - `GET /api/admin/workers/{workerId}/availability` — list availability windows
 - `POST /api/admin/workers/{workerId}/availability` — add availability
 - `DELETE /api/admin/workers/{workerId}/availability/{availabilityId}` — remove window
@@ -126,8 +130,14 @@ Click **Authorize** and paste the token returned by `POST /api/auth/login` to tr
 - `GET /api/worker/open-shifts` — upcoming open shifts available to claim
 - `POST /api/worker/open-shifts/{openShiftId}/claim` — take an open shift (`409 SHIFT_ALREADY_TAKEN` / `409 SHIFT_OVERLAP`)
 - `PATCH /api/worker/assignments/{assignmentId}/status` — update own shift status (`SCHEDULED`, `IN_PROGRESS`, `COMPLETED`; `403` for other workers' shifts)
+- `POST /api/worker/password/change` — set a new password (`403 INVALID_CURRENT_PASSWORD`, `400 PASSWORD_UNCHANGED`); returns a fresh JWT because the token version rotates
+- `POST /api/worker/password/keep` — acknowledge the reset and keep the current (blank) password (`409 PASSWORD_RESET_NOT_PENDING` once acknowledged)
 
-Error responses use RFC 9457–style bodies (`type`, `title`, `status`, `detail`, plus a machine-readable `code` for domain errors or an `errors` field-map for validation failures), identical to the reference API.
+### Password reset flow
+
+An admin can reset a worker's password to blank. The worker then signs in with an empty password and the SPA shows a modal that either sets a new password or, after a two-click warning that a blank password is not best practice, keeps it. The `password_reset_required` flag on `users` drives this, and the flag is mirrored in `localStorage.rms_password_reset_required` so the modal survives a refresh. `BCryptPasswordEncoder` rejects an empty raw secret, so `SecurityBeans` supplies a blank-tolerant encoder that verifies `""` with `BCrypt.checkpw`.
+
+Error responses use RFC 9457–style bodies (`type`, `title`, `status`, `detail`, plus a machine-readable `code` for domain errors or an `errors` field-map for validation failures), identical to the reference API. Security hardening adds to that contract: repeated sign-in failures return `429 TOO_MANY_ATTEMPTS` with a `Retry-After` header, tokens issued before a worker is deactivated return `401`, and every API response carries baseline security headers (`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Cache-Control: no-store`) while the nginx-served SPA ships a strict CSP.
 
 ## Project Structure
 

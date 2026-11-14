@@ -20,6 +20,9 @@ public class AppProperties {
     /** Browser origins allowed to call the API. */
     private Cors cors = new Cors();
 
+    /** Sign-in failure throttling settings. */
+    private RateLimit rateLimit = new RateLimit();
+
     /** Site timezone used to resolve "today" and day boundaries. */
     private String siteTimezone = "Australia/Brisbane";
 
@@ -36,6 +39,17 @@ public class AppProperties {
         private Duration ttl = Duration.ofHours(8);
         /** Issuer claim written into tokens. */
         private String issuer = "retirement-home-rms";
+    }
+
+    @Getter
+    @Setter
+    public static class RateLimit {
+        /** Failed sign-in attempts tolerated per window before a lockout trips. */
+        private int maxFailedAttempts = 5;
+        /** Rolling window in which failed sign-in attempts are counted. */
+        private Duration window = Duration.ofMinutes(10);
+        /** How long further sign-in attempts are rejected once the allowance is used up. */
+        private Duration lockout = Duration.ofMinutes(15);
     }
 
     @Getter

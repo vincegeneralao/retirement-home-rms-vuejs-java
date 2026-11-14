@@ -81,6 +81,13 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/workers/{workerId}/reset-password")
+    @Operation(summary = "Reset a support worker's password to blank")
+    public ResponseEntity<Void> resetWorkerPassword(@PathVariable Long workerId) {
+        directoryService.resetWorkerPassword(workerId);
+        return ResponseEntity.noContent().build();
+    }
+
     // ---- Availability ----------------------------------------------------------------------
 
     @GetMapping("/workers/{workerId}/availability")
@@ -163,7 +170,6 @@ public class AdminController {
                 .contentType(MediaType.parseMediaType(XLSX))
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + filename + "\"; filename*=UTF-8''" + filename)
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(content);
     }
 }

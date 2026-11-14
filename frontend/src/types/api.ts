@@ -6,6 +6,8 @@ export interface AuthResponse {
   fullName: string;
   roles: string[];
   expiresAt: string;
+  /** True when an admin reset the password and the worker has not replaced or kept it yet. */
+  mustChangePassword: boolean;
 }
 
 export interface AssignmentView {

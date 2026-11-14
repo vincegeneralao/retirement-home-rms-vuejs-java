@@ -3,6 +3,7 @@ package com.rms.error;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -40,7 +41,11 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = base("Request rejected", ex.getStatus());
         body.put("detail", ex.getMessage());
         body.put("code", ex.getCode());
-        return ResponseEntity.status(ex.getStatus()).body(body);
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(ex.getStatus());
+        if (ex.getRetryAfterSeconds() != null) {
+            builder.header(HttpHeaders.RETRY_AFTER, ex.getRetryAfterSeconds().toString());
+        }
+        return builder.body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

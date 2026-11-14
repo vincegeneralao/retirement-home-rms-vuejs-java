@@ -32,7 +32,7 @@ public class JwtService {
     }
 
     /** Mint a signed token for a user, returning it plus the expiry instant. */
-    public Issued issue(Long userId, String username, String fullName, List<String> roles) {
+    public Issued issue(Long userId, String username, String fullName, List<String> roles, int tokenVersion) {
         Instant now = Instant.now();
         Instant expiry = now.plus(props.getJwt().getTtl());
         String token = Jwts.builder()
@@ -41,6 +41,7 @@ public class JwtService {
                 .claim("uid", userId)
                 .claim("name", fullName)
                 .claim("roles", roles)
+                .claim("ver", tokenVersion)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
                 .signWith(key, Jwts.SIG.HS256)
@@ -63,6 +64,8 @@ public class JwtService {
                 .getPayload();
         List<String> roles = claims.get("roles", List.class);
         Long uid = claims.get("uid", Number.class).longValue();
-        return new AuthPrincipal(uid, claims.getSubject(), roles == null ? List.of() : roles);
+        Number ver = claims.get("ver", Number.class);
+        return new AuthPrincipal(uid, claims.getSubject(), roles == null ? List.of() : roles,
+                ver == null ? 0 : ver.intValue()); // tokens minted before versioning stay valid at 0
     }
 }

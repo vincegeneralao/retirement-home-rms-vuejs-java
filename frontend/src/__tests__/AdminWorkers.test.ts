@@ -12,6 +12,7 @@ vi.mock("../api/services", () => ({
   getAdminWorkers: vi.fn(),
   createWorker: vi.fn(),
   deactivateWorker: vi.fn(),
+  resetWorkerPassword: vi.fn(),
 }));
 
 import * as api from "../api/services";
@@ -32,6 +33,7 @@ const workersData = [
 describe("AdminWorkers", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    vi.clearAllMocks();
   });
 
   it("renders workers table", async () => {
@@ -109,5 +111,52 @@ describe("AdminWorkers", () => {
     const deactivateBtn = w.findAll("button").find(b => b.text() === "Deactivate");
     await deactivateBtn!.trigger("click");
     await vi.waitFor(() => expect(api.deactivateWorker).toHaveBeenCalledWith(1));
+  });
+
+  it("resets a worker password after confirmation", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    (api.getAdminWorkers as any).mockResolvedValue(workersData);
+    (api.resetWorkerPassword as any).mockResolvedValue(undefined);
+
+    const w = mount(AdminWorkers, { global: { plugins: [createPinia()] } });
+    await vi.waitFor(() => expect(w.text()).toContain("Grace Loke"));
+
+    const resetBtn = w.findAll("button").find((b) => b.text() === "Reset password");
+    await resetBtn!.trigger("click");
+
+    await vi.waitFor(() => expect(api.resetWorkerPassword).toHaveBeenCalledWith(1));
+    await vi.waitFor(() => expect(w.text()).toContain("password is now blank"));
+    confirm.mockRestore();
+  });
+
+  it("does not reset a password when the admin backs out", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    (api.getAdminWorkers as any).mockResolvedValue(workersData);
+
+    const w = mount(AdminWorkers, { global: { plugins: [createPinia()] } });
+    await vi.waitFor(() => expect(w.text()).toContain("Grace Loke"));
+
+    const resetBtn = w.findAll("button").find((b) => b.text() === "Reset password");
+    await resetBtn!.trigger("click");
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalled());
+
+    expect(api.resetWorkerPassword).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it("surfaces a reset failure", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    (api.getAdminWorkers as any).mockResolvedValue(workersData);
+    (api.resetWorkerPassword as any).mockRejectedValue({
+      response: { data: { detail: "No worker with id 1" } },
+    });
+
+    const w = mount(AdminWorkers, { global: { plugins: [createPinia()] } });
+    await vi.waitFor(() => expect(w.text()).toContain("Grace Loke"));
+
+    const resetBtn = w.findAll("button").find((b) => b.text() === "Reset password");
+    await resetBtn!.trigger("click");
+    await vi.waitFor(() => expect(w.text()).toContain("No worker with id 1"));
+    confirm.mockRestore();
   });
 });

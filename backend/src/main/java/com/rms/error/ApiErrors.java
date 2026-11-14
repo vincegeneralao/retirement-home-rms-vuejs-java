@@ -73,4 +73,23 @@ public final class ApiErrors {
     public static ApiException validation(String message) {
         return new ApiException("VALIDATION", message, 400);
     }
+
+    public static ApiException tooManyAttempts(long retryAfterSeconds) {
+        return new ApiException("TOO_MANY_ATTEMPTS",
+                "Too many failed sign-in attempts. Try again later.", 429, retryAfterSeconds);
+    }
+
+    public static ApiException invalidCurrentPassword() {
+        return new ApiException("INVALID_CURRENT_PASSWORD", "Your current password is incorrect", 403);
+    }
+
+    public static ApiException passwordUnchanged() {
+        return new ApiException("PASSWORD_UNCHANGED",
+                "The new password must be different from the current one", 400);
+    }
+
+    public static ApiException passwordResetNotPending() {
+        return new ApiException("PASSWORD_RESET_NOT_PENDING",
+                "There is no password reset waiting for you to confirm", 409);
+    }
 }

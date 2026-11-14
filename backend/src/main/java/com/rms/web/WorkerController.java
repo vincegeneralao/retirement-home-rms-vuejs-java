@@ -13,17 +13,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.rms.config.AppProperties;
 import com.rms.dto.AssignmentView;
+import com.rms.dto.AuthResponse;
+import com.rms.dto.ChangePasswordRequest;
 import com.rms.dto.OpenShiftView;
 import com.rms.dto.UpdateStatusRequest;
 import com.rms.security.AuthPrincipal;
 import com.rms.security.CurrentUser;
 import com.rms.service.AssignmentQueryService;
 import com.rms.service.AssignmentStatusService;
+import com.rms.service.AuthService;
 import com.rms.service.OpenShiftService;
 import com.rms.util.TimeUtil;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/worker")
@@ -33,14 +37,17 @@ public class WorkerController {
     private final AssignmentQueryService assignmentQueryService;
     private final AssignmentStatusService assignmentStatusService;
     private final OpenShiftService openShiftService;
+    private final AuthService authService;
     private final AppProperties props;
 
     public WorkerController(AssignmentQueryService assignmentQueryService,
                            AssignmentStatusService assignmentStatusService,
-                           OpenShiftService openShiftService, AppProperties props) {
+                           OpenShiftService openShiftService, AuthService authService,
+                           AppProperties props) {
         this.assignmentQueryService = assignmentQueryService;
         this.assignmentStatusService = assignmentStatusService;
         this.openShiftService = openShiftService;
+        this.authService = authService;
         this.props = props;
     }
 
@@ -75,5 +82,18 @@ public class WorkerController {
                                        @PathVariable Long assignmentId,
                                        @RequestBody UpdateStatusRequest request) {
         return assignmentStatusService.updateStatus(me.userId(), assignmentId, request.status());
+    }
+
+    @PostMapping("/password/change")
+    @Operation(summary = "Replace my password after an admin reset")
+    public AuthResponse changePassword(@CurrentUser AuthPrincipal me,
+                                       @Valid @RequestBody ChangePasswordRequest request) {
+        return authService.changePassword(me.userId(), request.currentPassword(), request.newPassword());
+    }
+
+    @PostMapping("/password/keep")
+    @Operation(summary = "Keep the blank password an admin reset me to")
+    public AuthResponse keepPassword(@CurrentUser AuthPrincipal me) {
+        return authService.keepCurrentPassword(me.userId());
     }
 }

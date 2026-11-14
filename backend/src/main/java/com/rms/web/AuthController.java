@@ -11,6 +11,7 @@ import com.rms.service.AuthService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -26,7 +27,9 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Sign in and receive a bearer token")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+        // The socket address only: X-Forwarded-* headers are spoofable when the backend
+        // port is exposed directly, which would let callers pick their own rate-limit key.
+        return authService.login(request, servletRequest.getRemoteAddr());
     }
 }

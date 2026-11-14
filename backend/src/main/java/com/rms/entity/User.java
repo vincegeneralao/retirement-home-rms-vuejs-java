@@ -45,4 +45,21 @@ public class User {
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
+
+    /**
+     * Bumped whenever previously issued tokens must stop working (e.g. deactivation). A JWT
+     * carries the value it was minted with, and every guarded request re-checks it, so old
+     * tokens die immediately instead of living out their full TTL.
+     */
+    @Builder.Default
+    @Column(name = "token_version", nullable = false, columnDefinition = "integer not null default 0")
+    private int tokenVersion = 0;
+
+    /**
+     * Set when an administrator resets the password to the blank default. The worker is then
+     * prompted to pick a new password (or explicitly keep the blank one) on their next login.
+     */
+    @Builder.Default
+    @Column(name = "password_reset_required", nullable = false, columnDefinition = "boolean not null default false")
+    private boolean passwordResetRequired = false;
 }

@@ -49,11 +49,21 @@ class AuthApiTest extends AbstractApiTest {
     @Test
     void loginValidationFailureReturnsFieldMap() throws Exception {
         mockMvc.perform(post("/api/auth/login").contentType(JSON)
-                        .content("{\"username\":\"\",\"password\":\"x\"}"))
+                        .content("{\"username\":\"\",\"password\":null}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Invalid request body"))
                 .andExpect(jsonPath("$.detail").value("Validation failed"))
                 .andExpect(jsonPath("$.errors.username").value("username is required"))
-                .andExpect(jsonPath("$.errors.password").value("password must be between 6 and 100 characters"));
+                .andExpect(jsonPath("$.errors.password").value("password is required"));
+    }
+
+    @Test
+    void loginAcceptsShortPasswordSinceBlankPasswordsAreLegitimate() throws Exception {
+        // An admin reset leaves the worker on the empty password, so the sign-in gate must not
+        // impose a length rule. Credential strength is enforced when a password is set instead.
+        mockMvc.perform(post("/api/auth/login").contentType(JSON)
+                        .content("{\"username\":\"admin\",\"password\":\"short\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 }

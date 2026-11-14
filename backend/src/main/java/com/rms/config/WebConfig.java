@@ -12,6 +12,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.rms.entity.Role;
 import com.rms.security.CurrentUserArgumentResolver;
 import com.rms.security.RoleInterceptor;
+import com.rms.service.TokenRevocationService;
 
 /** Wires the custom JWT auth plumbing: the {@code @CurrentUser} resolver, the per-group role
  * guards and cross-origin policy. Full Spring Security is intentionally not used. */
@@ -19,10 +20,13 @@ import com.rms.security.RoleInterceptor;
 public class WebConfig implements WebMvcConfigurer {
 
     private final CurrentUserArgumentResolver currentUserResolver;
+    private final TokenRevocationService revocations;
     private final AppProperties props;
 
-    public WebConfig(CurrentUserArgumentResolver currentUserResolver, AppProperties props) {
+    public WebConfig(CurrentUserArgumentResolver currentUserResolver, TokenRevocationService revocations,
+                     AppProperties props) {
         this.currentUserResolver = currentUserResolver;
+        this.revocations = revocations;
         this.props = props;
     }
 
@@ -33,8 +37,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new RoleInterceptor(Role.ADMIN)).addPathPatterns("/api/admin/**");
-        registry.addInterceptor(new RoleInterceptor(Role.WORKER)).addPathPatterns("/api/worker/**");
+        registry.addInterceptor(new RoleInterceptor(Role.ADMIN, revocations)).addPathPatterns("/api/admin/**");
+        registry.addInterceptor(new RoleInterceptor(Role.WORKER, revocations)).addPathPatterns("/api/worker/**");
     }
 
     @Override

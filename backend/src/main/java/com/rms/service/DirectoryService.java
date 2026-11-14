@@ -95,11 +95,33 @@ public class DirectoryService {
                 worker.getRole().name(), worker.isEnabled(), 0, List.of());
     }
 
-    /** Soft-delete: the worker can no longer sign in but historical shifts are preserved. */
+    /**
+     * Soft-delete: the worker can no longer sign in but historical shifts are preserved.
+     * The token-version bump also kills bearer tokens already in flight; they would otherwise
+     * stay usable until their expiry.
+     */
     @Transactional
     public void deactivateWorker(Long workerId) {
         User worker = requireWorker(workerId);
         worker.setEnabled(false);
+        worker.setTokenVersion(worker.getTokenVersion() + 1);
+    }
+
+    /**
+     * Resets a worker's credential to the blank password and marks the account so the worker is
+     * asked to deal with it on their next sign-in. The token-version bump logs the worker out of
+     * every device, since the old secret is no longer theirs.
+     *
+     * <p>An empty password is deliberately weak; it is a handover convenience, not a steady
+     * state, which is why the UI nags the worker to replace it.
+     */
+    @Transactional
+    public void resetWorkerPassword(Long workerId) {
+        User worker = requireWorker(workerId);
+        worker.setPasswordHash(passwordEncoder.encode(""));
+        worker.setPasswordResetRequired(true);
+        worker.setTokenVersion(worker.getTokenVersion() + 1);
+        userRepository.save(worker);
     }
 
     private User requireWorker(Long workerId) {

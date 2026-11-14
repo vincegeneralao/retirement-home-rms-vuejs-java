@@ -48,6 +48,8 @@
       <!-- Workers list -->
       <StatePanels :loading="loading" :error="error" :empty="!loading && !error && workers.length === 0" />
 
+      <UiAlert v-if="resetMsg" :variant="resetOk ? 'success' : 'destructive'" class="mb-3">{{ resetMsg }}</UiAlert>
+
       <section v-if="!loading && !error && workers.length > 0" class="grid gap-3">
         <UiCard v-for="w in workers" :key="w.id" :class="w.enabled ? '' : 'opacity-70'">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -61,9 +63,14 @@
               </div>
               <p class="truncate text-sm text-slate-500">@{{ w.username }}</p>
             </div>
-            <UiButton v-if="w.enabled" variant="destructive" size="sm" @click="handleDeactivate(w.id)">
-              Deactivate
-            </UiButton>
+            <div class="flex flex-wrap items-center gap-2">
+              <UiButton v-if="w.enabled" variant="outline" size="sm" @click="handleResetPassword(w)">
+                Reset password
+              </UiButton>
+              <UiButton v-if="w.enabled" variant="destructive" size="sm" @click="handleDeactivate(w.id)">
+                Deactivate
+              </UiButton>
+            </div>
           </div>
 
           <p class="mt-3 text-sm text-slate-600">
@@ -96,7 +103,7 @@ import UiInput from "@/components/ui/UiInput.vue";
 import UiLabel from "@/components/ui/UiLabel.vue";
 import UiBadge from "@/components/ui/UiBadge.vue";
 import UiAlert from "@/components/ui/UiAlert.vue";
-import { getAdminWorkers, createWorker, deactivateWorker } from "@/api/services";
+import { getAdminWorkers, createWorker, deactivateWorker, resetWorkerPassword } from "@/api/services";
 import type { WorkerView } from "@/types/api";
 
 const workers = ref<WorkerView[]>([]);
@@ -105,6 +112,8 @@ const error = ref<string | null>(null);
 const form = reactive({ username: "", fullName: "", password: "" });
 const addMsg = ref("");
 const addOk = ref(false);
+const resetMsg = ref("");
+const resetOk = ref(false);
 
 async function loadWorkers() {
   loading.value = true;
@@ -139,6 +148,28 @@ async function handleDeactivate(id: number) {
     await loadWorkers();
   } catch (err: any) {
     error.value = err.response?.data?.detail || "Failed to deactivate";
+  }
+}
+
+/**
+ * Blanks the worker's password. Destructive: it signs them out everywhere and leaves the
+ * account open until they set a new password, so it asks first and says so afterwards.
+ */
+async function handleResetPassword(worker: WorkerView) {
+  resetMsg.value = "";
+  resetOk.value = false;
+  const ok = window.confirm(
+    `Reset ${worker.fullName}'s password to blank?\n\n` +
+      "They will be signed out of every device and asked to set a new password on their next sign-in.",
+  );
+  if (!ok) return;
+  try {
+    await resetWorkerPassword(worker.id);
+    resetOk.value = true;
+    resetMsg.value = `${worker.fullName}'s password is now blank. They must set a new one at next sign-in.`;
+  } catch (err: any) {
+    resetOk.value = false;
+    resetMsg.value = err.response?.data?.detail || "Failed to reset password";
   }
 }
 

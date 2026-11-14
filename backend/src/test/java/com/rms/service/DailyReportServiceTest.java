@@ -5,10 +5,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
 import com.rms.entity.Assignment;
@@ -43,5 +46,22 @@ class DailyReportServiceTest {
         AssignmentRepository repo = mock(AssignmentRepository.class);
         when(repo.findInRange(any(), any())).thenReturn(List.of());
         assertThat(new DailyReportService(repo).generate(LocalDate.of(2026, 3, 6))).isNotEmpty();
+    }
+
+    @Test
+    void formulaLikeStoredValuesAreNeutralized() throws Exception {
+        AssignmentRepository repo = mock(AssignmentRepository.class);
+        when(repo.findInRange(any(), any())).thenReturn(List.of(
+                row(1L, AssignmentStatus.SCHEDULED, "=HYPERLINK(\"http://evil\")"),
+                row(2L, AssignmentStatus.COMPLETED, "Regular note")));
+
+        byte[] xlsx = new DailyReportService(repo).generate(LocalDate.of(2026, 3, 5));
+
+        try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(xlsx))) {
+            Sheet sheet = wb.getSheet("Daily Schedule");
+            assertThat(sheet.getRow(3).getCell(7).getStringCellValue())
+                    .isEqualTo("'=HYPERLINK(\"http://evil\")");
+            assertThat(sheet.getRow(4).getCell(7).getStringCellValue()).isEqualTo("Regular note");
+        }
     }
 }

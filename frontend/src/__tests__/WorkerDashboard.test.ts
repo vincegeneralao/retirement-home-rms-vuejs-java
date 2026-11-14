@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import WorkerDashboard from "../pages/WorkerDashboard.vue";
+import ChangePasswordModal from "../components/ChangePasswordModal.vue";
+import { useAuthStore } from "../stores/auth";
 
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -52,6 +54,30 @@ describe("WorkerDashboard", () => {
   it("shows empty state when no shifts", async () => {
     const w = mount(WorkerDashboard, { global: { plugins: [createPinia()] } });
     await vi.waitFor(() => expect(w.text()).toContain("No records found"));
+  });
+
+  it("shows the change password modal and skips loading until a reset is dealt with", async () => {
+    localStorage.setItem("rms_password_reset_required", "true");
+    const w = mount(WorkerDashboard, { global: { plugins: [createPinia()] } });
+    await vi.waitFor(() => expect(w.text()).toContain("Your password was reset"));
+
+    expect(api.getWorkerAssignments).not.toHaveBeenCalled();
+    expect(api.getOpenShifts).not.toHaveBeenCalled();
+    localStorage.clear();
+  });
+
+  it("loads the roster once the reset is resolved", async () => {
+    localStorage.setItem("rms_password_reset_required", "true");
+    const w = mount(WorkerDashboard, { global: { plugins: [createPinia()] } });
+    await vi.waitFor(() => expect(w.text()).toContain("Your password was reset"));
+
+    useAuthStore().mustChangePassword = false;
+    w.findComponent(ChangePasswordModal).vm.$emit("resolved");
+
+    await vi.waitFor(() => expect(w.text()).toContain("No records found"));
+    expect(api.getWorkerAssignments).toHaveBeenCalled();
+    expect(api.getOpenShifts).toHaveBeenCalled();
+    localStorage.clear();
   });
 
   it("shows error on failure", async () => {

@@ -97,8 +97,27 @@ public class DailyReportService {
 
     private static void write(Row row, int col, String value, CellStyle style) {
         Cell cell = row.createCell(col);
-        cell.setCellValue(value == null ? "" : value);
+        cell.setCellValue(neutralizeFormula(value == null ? "" : value));
         cell.setCellStyle(style);
+    }
+
+    /**
+     * Escapes stored text that spreadsheet applications may interpret as a formula
+     * (spreadsheet/formula injection, CWE-1236): a stored value such as a worker name, room,
+     * address or note beginning with =, +, - or @ can execute when an admin opens the workbook.
+     * The leading {@code '} marks the cell as literal text and is how spreadsheet apps denote
+     * exactly that. Genuine report values never begin with these characters, so the escape is
+     * normally invisible.
+     */
+    private static String neutralizeFormula(String value) {
+        if (value.isEmpty()) {
+            return value;
+        }
+        char first = value.charAt(0);
+        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+            return "'" + value;
+        }
+        return value;
     }
 
     private static void autoSize(Sheet sheet) {

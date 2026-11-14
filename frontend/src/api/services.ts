@@ -53,6 +53,22 @@ export async function deactivateWorker(workerId: number): Promise<WorkerView> {
   return res.data;
 }
 
+/** Sets the worker's password back to blank and forces them to deal with it on next sign-in. */
+export async function resetWorkerPassword(workerId: number): Promise<void> {
+  await httpClient.post(`/admin/workers/${workerId}/reset-password`);
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<AuthResponse> {
+  const res = await httpClient.post<AuthResponse>("/worker/password/change", { currentPassword, newPassword });
+  return res.data;
+}
+
+/** Acknowledges the blank reset password and keeps it. */
+export async function keepResetPassword(): Promise<AuthResponse> {
+  const res = await httpClient.post<AuthResponse>("/worker/password/keep");
+  return res.data;
+}
+
 export async function getWorkerAvailability(workerId: number): Promise<AvailabilityView[]> {
   const res = await httpClient.get<AvailabilityView[]>(`/admin/workers/${workerId}/availability`);
   return res.data;
