@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rms_java
+      POSTGRES_USER: rms
+      POSTGRES_PASSWORD: rms_secret_2026
+    ports:
+      - "5434:5432"
+    volumes:
+      - rms-java-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rms -d rms_java"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: Australia/Brisbane
+      SITE_TIMEZONE: Australia/Brisbane
+      PORT: "8080"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: rms_java
+      DB_USER: rms
+      DB_PASSWORD: rms_secret_2026
+      JWT_SECRET: "change-me-to-a-32byte-or-longer-secret-string!!"
+      JWT_TTL: 8h
+      CORS_ORIGINS: "http://localhost:5175"
+    ports:
+      - "3001:8080"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5175:80"
+
+volumes:
+  rms-java-db-data:
